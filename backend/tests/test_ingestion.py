@@ -7,6 +7,9 @@ from app.ingestion.market_data_client import MarketDataClient
 from app.ingestion.options_chain_client import OptionsChainClient
 
 
+def test_market_data_client_loads_candles_from_csv():
+    client = MarketDataClient()
+    candles = client.load_candles_from_csv("backend/fixtures/spy_candles_fixture.csv", symbol="SPY", timeframe="15m")
 def test_market_data_client_loads_candles():
     client = MarketDataClient()
     candles = client.load_candles("backend/fixtures/spy_candles_fixture.csv", symbol="SPY", timeframe="15m")
@@ -23,6 +26,7 @@ def test_dedupe_candles_by_symbol_timeframe_timestamp():
     assert len(deduped) == 2
 
 
+def test_options_normalization_and_deduplication_internal_payload():
 def test_options_normalization_and_deduplication():
     payload = [
         {
@@ -48,3 +52,23 @@ def test_options_normalization_and_deduplication():
     assert len(snapshots) == 1
     assert round(snapshots[0].mid, 4) == 2.2
     assert len(deduped) == 1
+
+
+def test_options_normalization_yfinance_payload():
+    payload = [
+        {
+            "underlying": "SPY",
+            "contractSymbol": "SPY250117P00550000",
+            "expiration_date": "2025-01-17",
+            "strike": 550,
+            "bid": 3.4,
+            "ask": 3.8,
+            "lastPrice": 3.6,
+            "volume": 900,
+            "openInterest": 4200,
+        }
+    ]
+
+    snapshots = OptionsChainClient().normalize_snapshot(payload, provider="yfinance")
+    assert snapshots[0].option_type == "put"
+    assert snapshots[0].open_interest == 4200
