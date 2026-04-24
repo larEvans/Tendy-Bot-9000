@@ -1,19 +1,13 @@
 # Build Guide (Current Repo)
 
-This repository includes the MVP architecture spec in:
+This repository now includes a full MVP architecture specification for a SPY options paper-trading system in:
 
 - `docs/SPEC-001-stock-trading-ai.md`
 
 ## Milestone Status
 
-- ✅ Milestone 1 (Foundation): backend service skeleton and `/health` endpoint.
-- ✅ Milestone 2 (Market Data Ingestion): provider-aware candle/options ingestion adapters and tests.
-
-## Data Ingestion Sources (as requested)
-
-- **Primary free training data:** `yfinance` SPY historical candles.
-- **Optional free/cheap validation source:** Alpaca market data.
-- **Options chain for forward collection:** yfinance, Alpaca, or Tradier delayed chain payload normalization.
+- ✅ Milestone 1 (Foundation): started with backend service skeleton and `/health` endpoint.
+- ✅ Milestone 2 (Market Data Ingestion): started with normalized candle/options ingestion clients, dedupe helpers, and ingestion tests.
 
 ## What you can run now
 
@@ -31,23 +25,8 @@ PYTHONPATH=backend uvicorn app.main:app --reload
 
 ### 3) Trigger candle ingestion
 
-**yfinance (default):**
-
 ```bash
-curl -X POST "http://127.0.0.1:8000/jobs/ingest/candles?provider=yfinance&timeframe=1d&start=2025-01-01&end=2025-12-31"
-```
-
-**Alpaca validation source:**
-
-```bash
-ALPACA_API_KEY=... ALPACA_SECRET_KEY=... PYTHONPATH=backend uvicorn app.main:app --reload
-curl -X POST "http://127.0.0.1:8000/jobs/ingest/candles?provider=alpaca&timeframe=1Day&start=2025-01-01&end=2025-12-31"
-```
-
-**Local CSV fallback:**
-
-```bash
-curl -X POST "http://127.0.0.1:8000/jobs/ingest/candles?provider=csv&csv_path=backend/fixtures/spy_candles_fixture.csv&timeframe=15m"
+curl -X POST http://127.0.0.1:8000/jobs/ingest/candles
 ```
 
 ### 4) Run ingestion tests
@@ -58,7 +37,26 @@ PYTHONPATH=backend pytest backend/tests -q
 
 ## Next recommended tasks
 
-1. Persist candles/options snapshots into PostgreSQL/TimescaleDB.
-2. Add unique constraints matching current dedupe keys.
-3. Add scheduled ingestion jobs with structured error/audit logs.
-4. Add provider-specific adapters for live delayed options chain pulls.
+1. Add persistence layer (PostgreSQL/TimescaleDB) for `market_candles` and `options_chain_snapshots`.
+2. Add unique constraints matching dedupe keys.
+3. Add provider adapters (Polygon/Alpaca) and retry/error handling.
+4. Add ingestion scheduling and structured logs.
+## What to run right now
+
+Current repository contents are still minimal (single-script style). You can run:
+
+```bash
+python lstm.py
+```
+
+## Build from spec
+
+Use `docs/SPEC-001-stock-trading-ai.md` as the implementation blueprint and execute work in milestone order, beginning with **Milestone 1: Foundation**.
+
+Recommended first implementation tasks:
+
+1. Create monorepo folders: `backend/`, `dashboard/`, `infra/`, `docs/`.
+2. Add Docker Compose for local stack.
+3. Add FastAPI `/health` endpoint.
+4. Add dashboard skeleton.
+5. Add DB migration tooling.

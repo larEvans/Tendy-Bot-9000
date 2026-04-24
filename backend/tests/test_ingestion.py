@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.ingestion.jobs import dedupe_candles, dedupe_option_snapshots, ingest_spy_candles
+from app.ingestion.jobs import dedupe_candles, dedupe_option_snapshots
 from app.ingestion.market_data_client import MarketDataClient
 from app.ingestion.options_chain_client import OptionsChainClient
 
@@ -10,26 +10,24 @@ from app.ingestion.options_chain_client import OptionsChainClient
 def test_market_data_client_loads_candles_from_csv():
     client = MarketDataClient()
     candles = client.load_candles_from_csv("backend/fixtures/spy_candles_fixture.csv", symbol="SPY", timeframe="15m")
+def test_market_data_client_loads_candles():
+    client = MarketDataClient()
+    candles = client.load_candles("backend/fixtures/spy_candles_fixture.csv", symbol="SPY", timeframe="15m")
     assert len(candles) == 2
     assert candles[0].symbol == "SPY"
     assert candles[0].timeframe == "15m"
 
 
-def test_ingest_spy_candles_csv_provider():
-    candles, audit = ingest_spy_candles(provider="csv", csv_path="backend/fixtures/spy_candles_fixture.csv", timeframe="15m")
-    assert len(candles) == 2
-    assert audit.source == "csv"
-
-
 def test_dedupe_candles_by_symbol_timeframe_timestamp():
     client = MarketDataClient()
-    candles = client.load_candles_from_csv("backend/fixtures/spy_candles_fixture.csv", symbol="SPY", timeframe="15m")
+    candles = client.load_candles("backend/fixtures/spy_candles_fixture.csv", symbol="SPY", timeframe="15m")
     duplicated = candles + [candles[0]]
     deduped = dedupe_candles(duplicated)
     assert len(deduped) == 2
 
 
 def test_options_normalization_and_deduplication_internal_payload():
+def test_options_normalization_and_deduplication():
     payload = [
         {
             "underlying": "SPY",
@@ -47,7 +45,7 @@ def test_options_normalization_and_deduplication_internal_payload():
 
     client = OptionsChainClient()
     ts = datetime(2026, 4, 24, 14, 30, tzinfo=timezone.utc)
-    snapshots = client.normalize_snapshot(payload, provider="internal", snapshot_time=ts)
+    snapshots = client.normalize_snapshot(payload, snapshot_time=ts)
     duplicated = snapshots + [snapshots[0]]
     deduped = dedupe_option_snapshots(duplicated)
 

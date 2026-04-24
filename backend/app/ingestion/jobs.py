@@ -18,36 +18,19 @@ def dedupe_option_snapshots(snapshots: list[OptionsChainSnapshot]) -> list[Optio
     return list(unique.values())
 
 
-def ingest_spy_candles(
-    provider: str | None = None,
-    csv_path: str | None = None,
-    start: str | None = None,
-    end: str | None = None,
-    timeframe: str | None = None,
-):
+def ingest_spy_candles(csv_path: str | None = None):
     settings = get_settings()
-    source_provider = (provider or settings.candles_provider).lower()
+    source = csv_path or settings.spy_candles_csv_path
     client = MarketDataClient()
-
-    candles = client.load_spy_candles(
-        provider=source_provider,
-        symbol=settings.default_symbol,
-        timeframe=timeframe or settings.default_timeframe,
-        csv_path=csv_path or settings.spy_candles_csv_path,
-        start=start,
-        end=end,
-        alpaca_api_key=settings.alpaca_api_key,
-        alpaca_secret_key=settings.alpaca_secret_key,
-        alpaca_data_base_url=settings.alpaca_data_base_url,
-    )
+    candles = client.load_candles(source, symbol=settings.default_symbol, timeframe=settings.default_timeframe)
     deduped = dedupe_candles(candles)
-    audit = IngestionAudit(source=source_provider, loaded_at=UTC_NOW(), records_in=len(candles), records_out=len(deduped))
+    audit = IngestionAudit(source=source, loaded_at=UTC_NOW(), records_in=len(candles), records_out=len(deduped))
     return deduped, audit
 
 
-def ingest_options_snapshot(payload: list[dict], provider: str = "internal"):
+def ingest_options_snapshot(payload: list[dict]):
     client = OptionsChainClient()
-    snapshots = client.normalize_snapshot(payload=payload, provider=provider)
+    snapshots = client.normalize_snapshot(payload)
     deduped = dedupe_option_snapshots(snapshots)
-    audit = IngestionAudit(source=provider, loaded_at=UTC_NOW(), records_in=len(snapshots), records_out=len(deduped))
+    audit = IngestionAudit(source="options_payload", loaded_at=UTC_NOW(), records_in=len(snapshots), records_out=len(deduped))
     return deduped, audit

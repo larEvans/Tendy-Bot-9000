@@ -1,15 +1,11 @@
-"""Historical OHLCV ingestion from CSV and market-data providers."""
+"""Historical OHLCV ingestion from CSV-like sources."""
 
 from __future__ import annotations
 
 import csv
-import importlib
-import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 from app.db.models import MarketCandle
 
@@ -86,66 +82,22 @@ class MarketDataClient:
             timestamp = ts.to_pydatetime()
             if timestamp.tzinfo is None:
                 timestamp = timestamp.replace(tzinfo=timezone.utc)
+    """Loads normalized OHLCV candles from local CSV files."""
+
+    def load_candles(self, csv_path: str, symbol: str, timeframe: str) -> list[MarketCandle]:
+        rows = list(self._read_rows(csv_path))
+        candles: list[MarketCandle] = []
+        for row in rows:
             candles.append(
                 MarketCandle(
                     symbol=symbol,
                     timeframe=timeframe,
-                    timestamp=timestamp.astimezone(timezone.utc),
+                    timestamp=datetime.strptime(row["Date"], "%Y-%m-%d").replace(tzinfo=timezone.utc),
                     open=float(row["Open"]),
                     high=float(row["High"]),
                     low=float(row["Low"]),
                     close=float(row["Close"]),
-                    volume=int(float(row.get("Volume", 0))),
-                )
-            )
-        return candles
-
-    def load_candles_from_alpaca(
-        self,
-        *,
-        symbol: str,
-        timeframe: str,
-        start: str | None,
-        end: str | None,
-        alpaca_api_key: str,
-        alpaca_secret_key: str,
-        alpaca_data_base_url: str,
-    ) -> list[MarketCandle]:
-        params = {
-            "timeframe": timeframe,
-            "start": start,
-            "end": end,
-            "limit": 10000,
-            "adjustment": "raw",
-            "feed": "iex",
-        }
-        query = urlencode({k: v for k, v in params.items() if v})
-        url = f"{alpaca_data_base_url.rstrip('/')}/v2/stocks/{symbol}/bars?{query}"
-        req = Request(
-            url,
-            headers={
-                "accept": "application/json",
-                "APCA-API-KEY-ID": alpaca_api_key,
-                "APCA-API-SECRET-KEY": alpaca_secret_key,
-            },
-        )
-
-        with urlopen(req, timeout=20) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-
-        bars = body.get("bars", [])
-        candles: list[MarketCandle] = []
-        for bar in bars:
-            candles.append(
-                MarketCandle(
-                    symbol=symbol,
-                    timeframe=timeframe,
-                    timestamp=datetime.fromisoformat(bar["t"].replace("Z", "+00:00")).astimezone(timezone.utc),
-                    open=float(bar["o"]),
-                    high=float(bar["h"]),
-                    low=float(bar["l"]),
-                    close=float(bar["c"]),
-                    volume=int(bar.get("v", 0)),
+                    volume=int(float(row["Volume"])),
                 )
             )
         return candles
